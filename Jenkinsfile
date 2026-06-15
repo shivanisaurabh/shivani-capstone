@@ -12,7 +12,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/shivanisaurabh/shivani-capstone.git'
+                    url: 'https://github.com/shivanisaurabh/shivani-capstone.git'
             }
         }
 
@@ -35,32 +35,76 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('terraform') {
-                    sh 'terraform init'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    dir('terraform') {
+                        sh '''
+                            export AWS_DEFAULT_REGION=us-west-1
+                            terraform init
+                        '''
+                    }
                 }
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                dir('terraform') {
-                    sh 'terraform validate'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    dir('terraform') {
+                        sh '''
+                            export AWS_DEFAULT_REGION=us-west-1
+                            terraform validate
+                        '''
+                    }
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                dir('terraform') {
-                    sh 'terraform plan'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    dir('terraform') {
+                        sh '''
+                            export AWS_DEFAULT_REGION=us-west-1
+                            terraform plan
+                        '''
+                    }
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                dir('terraform') {
-                    sh 'terraform apply -auto-approve'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    dir('terraform') {
+                        sh '''
+                            export AWS_DEFAULT_REGION=us-west-1
+                            terraform apply -auto-approve
+                        '''
+                    }
                 }
             }
         }
@@ -76,20 +120,20 @@ pipeline {
         stage('Docker Build') {
             steps {
                 dir('backend') {
-                    sh 'docker build -t ${DOCKER_IMAGE}:latest .'
+                    sh 'docker build -t travelmemory-backend:latest .'
                 }
             }
         }
 
         stage('Docker Login') {
             steps {
-                echo 'Docker login stage'
+                echo 'Docker Login Stage'
             }
         }
 
         stage('Docker Push') {
             steps {
-                echo 'Docker push stage'
+                echo 'Docker Push Stage'
             }
         }
     }
