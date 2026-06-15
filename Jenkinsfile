@@ -2,7 +2,13 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'us-west-1'
+        AWS_REGION = "us-west-1"
+        AWS_ACCOUNT_ID = "975050024946"
+        ECR_REPO = "shivani-capstone"
+        IMAGE_TAG = "latest"
+
+        ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+        CLUSTER_NAME = "capstone-eks"
     }
 
     stages {
@@ -14,95 +20,96 @@ pipeline {
             }
         }
 
-        stage('AWS Verify') {
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+                '''
+            }
+        }
+
+        stage('Login to ECR') {
             steps {
                 withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'shivani-aws-creds']
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
                 ]) {
                     sh '''
-                        export AWS_DEFAULT_REGION=us-west-1
-                        aws sts get-caller-identity
+                    aws ecr get-login-password --region ${AWS_REGION} \
+                    | docker login --username AWS \
+                    --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
                     '''
                 }
             }
         }
 
-        stage('Terraform Init') {
+        stage('Tag Image') {
+            steps {
+                sh '''
+                docker tag ${ECR_REPO}:${IMAGE_TAG} \
+                ${ECR_URI}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Push Image to ECR') {
+            steps {
+                sh '''
+                docker push ${ECR_URI}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Configure EKS') {
             steps {
                 withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'shivani-aws-creds']
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
                 ]) {
-                    dir('terraform') {
-                        sh '''
-                            export AWS_DEFAULT_REGION=us-west-1
-                            terraform init
-                        '''
-                    }
+                    sh '''
+                    aws eks update-kubeconfig \
+                    --region ${AWS_REGION} \
+                    --name ${CLUSTER_NAME}
+                    '''
                 }
             }
         }
 
-        stage('Terraform Validate') {
+        stage('Deploy to EKS') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'shivani-aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform validate'
-                    }
-                }
+                sh '''
+                kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
+                kubectl apply -f k8s/hpa.yaml
+                '''
             }
         }
 
-        stage('Terraform Plan') {
+        stage('Verify Deployment') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'shivani-aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform plan'
-                    }
-                }
+                sh '''
+                kubectl get nodes
+                kubectl get deployments
+                kubectl get pods
+                kubectl get svc
+                kubectl get hpa
+                '''
             }
         }
-
-        stage('Terraform Apply') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'shivani-aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform apply -auto-approve'
-                    }
-                }
-            }
-        }
-
-        stage('Check Ansible') {
-            steps {
-                sh 'ansible --version'
-            }
-        }
-
-        stage('Check Docker') {
-    steps {
-        sh 'docker --version'
-    }
-}
     }
 
     post {
         success {
-            echo 'Deployment Successful'
+            echo 'Sprint 4 Deployment Successful'
         }
-
         failure {
-            echo 'Deployment Failed'
+            echo 'Sprint 4 Deployment Failed'
         }
     }
 }
