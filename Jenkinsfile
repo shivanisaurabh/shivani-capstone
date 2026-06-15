@@ -16,7 +16,18 @@ stages {
     stage('Checkout') {
         steps {
             git branch: 'main',
-            url: 'https://github.com/shivanisaurabh/shivani-capstone.git'
+                url: 'https://github.com/shivanisaurabh/shivani-capstone.git'
+        }
+    }
+
+    stage('Debug Workspace') {
+        steps {
+            sh '''
+            pwd
+            ls -la
+            echo "BACKEND CONTENTS"
+            ls -la backend
+            '''
         }
     }
 
@@ -36,50 +47,37 @@ stages {
         }
     }
 
-    stage('Debug Workspace') {
-    steps {
-        sh '''
-        pwd
-        ls -la
-        echo "BACKEND CONTENTS"
-        ls -la backend
-        '''
-    }
-}
-
-    stage('Login to ECR') {
+    stage('Login To ECR') {
         steps {
             withCredentials([
-                usernamePassword(
-                    credentialsId: 'shivani-aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )
+                [
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'shivani-aws-creds'
+                ]
             ]) {
                 sh '''
-                export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                aws ecr get-login-password --region ${AWS_REGION} \
-                | docker login \
-                --username AWS \
-                --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                aws ecr get-login-password --region us-west-1 | \
+                docker login --username AWS --password-stdin \
+                975050024946.dkr.ecr.us-west-1.amazonaws.com
                 '''
             }
         }
     }
 
-    stage('Tag Docker Image') {
+    stage('Tag Image') {
         steps {
             sh '''
-            docker tag shivani-capstone:latest ${ECR_URI}:latest
+            docker tag shivani-capstone:latest \
+            975050024946.dkr.ecr.us-west-1.amazonaws.com/shivani-capstone:latest
             '''
         }
     }
 
-    stage('Push Image to ECR') {
+    stage('Push Image To ECR') {
         steps {
             sh '''
-            docker push ${ECR_URI}:latest
+            docker push \
+            975050024946.dkr.ecr.us-west-1.amazonaws.com/shivani-capstone:latest
             '''
         }
     }
@@ -87,18 +85,15 @@ stages {
     stage('Configure EKS') {
         steps {
             withCredentials([
-                usernamePassword(
-                    credentialsId: 'shivani-aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )
+                [
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'shivani-aws-creds'
+                ]
             ]) {
                 sh '''
-                export AWS_DEFAULT_REGION=${AWS_REGION}
-
                 aws eks update-kubeconfig \
-                --region ${AWS_REGION} \
-                --name ${CLUSTER_NAME}
+                --region us-west-1 \
+                --name capstone-eks
                 '''
             }
         }
@@ -117,7 +112,6 @@ stages {
     stage('Verify Deployment') {
         steps {
             sh '''
-            kubectl get nodes
             kubectl get deployments
             kubectl get pods
             kubectl get svc
