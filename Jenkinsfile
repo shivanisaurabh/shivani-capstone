@@ -88,6 +88,12 @@ pipeline {
                 sh 'ansible --version'
             }
         }
+
+        stage('Check Docker') {
+    steps {
+        sh 'docker --version'
+    }
+}
     }
 
     post {
