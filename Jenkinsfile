@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-west-1'
-        DOCKER_IMAGE = 'travelmemory-backend'
-        DOCKERHUB_USER = 'YOUR_DOCKERHUB_USERNAME'
     }
 
     stages {
@@ -19,11 +17,8 @@ pipeline {
         stage('AWS Verify') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'shivani-aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'shivani-aws-creds']
                 ]) {
                     sh '''
                         export AWS_DEFAULT_REGION=us-west-1
@@ -36,17 +31,12 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'shivani-aws-creds']
                 ]) {
                     dir('terraform') {
                         sh '''
                             export AWS_DEFAULT_REGION=us-west-1
-                             echo "AWS_ACCESS_KEY_ID exists:"
-                            env | grep AWS
                             terraform init
                         '''
                     }
@@ -57,17 +47,11 @@ pipeline {
         stage('Terraform Validate') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'shivani-aws-creds']
                 ]) {
                     dir('terraform') {
-                        sh '''
-                            export AWS_DEFAULT_REGION=us-west-1
-                            terraform validate
-                        '''
+                        sh 'terraform validate'
                     }
                 }
             }
@@ -76,17 +60,11 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'shivani-aws-creds']
                 ]) {
                     dir('terraform') {
-                        sh '''
-                            export AWS_DEFAULT_REGION=us-west-1
-                            terraform plan
-                        '''
+                        sh 'terraform plan'
                     }
                 }
             }
@@ -95,47 +73,13 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-creds',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'shivani-aws-creds']
                 ]) {
                     dir('terraform') {
-                        sh '''
-                            export AWS_DEFAULT_REGION=us-west-1
-                            terraform apply -auto-approve
-                        '''
+                        sh 'terraform apply -auto-approve'
                     }
                 }
-            }
-        }
-
-        stage('Build Backend') {
-            steps {
-                dir('backend') {
-                    sh 'npm install'
-                }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                dir('backend') {
-                    sh 'docker build -t travelmemory-backend:latest .'
-                }
-            }
-        }
-
-        stage('Docker Login') {
-            steps {
-                echo 'Docker Login Stage'
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                echo 'Docker Push Stage'
             }
         }
     }
