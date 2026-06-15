@@ -1,10 +1,10 @@
 pipeline {
-
     agent any
 
     environment {
-        IMAGE_NAME = "travelmemory-backend"
-        DOCKERHUB_USER = "YOUR_DOCKERHUB_USERNAME"
+        AWS_REGION = 'us-west-1'
+        DOCKER_IMAGE = 'travelmemory-backend'
+        DOCKERHUB_USER = 'YOUR_DOCKERHUB_USERNAME'
     }
 
     stages {
@@ -12,69 +12,55 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/shivanisaurabh/shivani-capstone.git'
+                url: 'https://github.com/shivanisaurabh/shivani-capstone.git'
             }
         }
 
         stage('AWS Verify') {
             steps {
                 withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds']
+                    usernamePassword(
+                        credentialsId: 'aws-creds',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
                 ]) {
-                    sh 'aws sts get-caller-identity'
+                    sh '''
+                        export AWS_DEFAULT_REGION=us-west-1
+                        aws sts get-caller-identity
+                    '''
                 }
             }
         }
 
         stage('Terraform Init') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform init'
-                    }
+                dir('terraform') {
+                    sh 'terraform init'
                 }
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform validate'
-                    }
+                dir('terraform') {
+                    sh 'terraform validate'
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform plan -out=tfplan'
-                    }
+                dir('terraform') {
+                    sh 'terraform plan'
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds']
-                ]) {
-                    dir('terraform') {
-                        sh 'terraform apply -auto-approve tfplan'
-                    }
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve'
                 }
             }
         }
@@ -90,34 +76,20 @@ pipeline {
         stage('Docker Build') {
             steps {
                 dir('backend') {
-                    sh """
-                    docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} .
-                    """
+                    sh 'docker build -t ${DOCKER_IMAGE}:latest .'
                 }
             }
         }
 
         stage('Docker Login') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
-                ]) {
-                    sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                    '''
-                }
+                echo 'Docker login stage'
             }
         }
 
         stage('Docker Push') {
             steps {
-                sh """
-                docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
-                """
+                echo 'Docker push stage'
             }
         }
     }
