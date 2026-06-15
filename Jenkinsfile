@@ -7,8 +7,7 @@ environment {
     AWS_ACCOUNT_ID = "975050024946"
     ECR_REPO = "shivani-capstone"
     CLUSTER_NAME = "capstone-eks"
-
-    ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+    ECR_URI = "975050024946.dkr.ecr.us-west-1.amazonaws.com/shivani-capstone"
 }
 
 stages {
@@ -25,15 +24,8 @@ stages {
             sh '''
             pwd
             ls -la
-            echo "BACKEND CONTENTS"
             ls -la backend
             '''
-        }
-    }
-
-    stage('Check Docker') {
-        steps {
-            sh 'docker --version'
         }
     }
 
@@ -56,9 +48,7 @@ stages {
                 ]
             ]) {
                 sh '''
-                aws ecr get-login-password --region us-west-1 | \
-                docker login --username AWS --password-stdin \
-                975050024946.dkr.ecr.us-west-1.amazonaws.com
+                aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 975050024946.dkr.ecr.us-west-1.amazonaws.com
                 '''
             }
         }
@@ -67,8 +57,7 @@ stages {
     stage('Tag Image') {
         steps {
             sh '''
-            docker tag shivani-capstone:latest \
-            975050024946.dkr.ecr.us-west-1.amazonaws.com/shivani-capstone:latest
+            docker tag shivani-capstone:latest ${ECR_URI}:latest
             '''
         }
     }
@@ -76,8 +65,7 @@ stages {
     stage('Push Image To ECR') {
         steps {
             sh '''
-            docker push \
-            975050024946.dkr.ecr.us-west-1.amazonaws.com/shivani-capstone:latest
+            docker push ${ECR_URI}:latest
             '''
         }
     }
@@ -91,9 +79,7 @@ stages {
                 ]
             ]) {
                 sh '''
-                aws eks update-kubeconfig \
-                --region us-west-1 \
-                --name capstone-eks
+                aws eks update-kubeconfig --region us-west-1 --name capstone-eks
                 '''
             }
         }
@@ -130,6 +116,5 @@ post {
         echo 'Sprint 4 Deployment Failed'
     }
 }
-```
 
 }
