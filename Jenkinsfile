@@ -127,13 +127,15 @@ pipeline {
         }
     }
 
-    post {
-        success {
-            echo 'Sprint 4 Deployment Successful'
-        }
-
-        failure {
-            echo 'Sprint 4 Deployment Failed'
-        }
+post {
+    success {
+        echo 'Deployment Successful'
     }
+
+    failure {
+        mail to: 'saurabh.shivani3@gmail.com',
+             subject: "Jenkins Pipeline Failed",
+             body: "Deployment failed in Jenkins"
+    }
+}
 }
