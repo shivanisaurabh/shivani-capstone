@@ -45,6 +45,8 @@ pipeline {
                     dir('terraform') {
                         sh '''
                             export AWS_DEFAULT_REGION=us-west-1
+                             echo "AWS_ACCESS_KEY_ID exists:"
+                            env | grep AWS
                             terraform init
                         '''
                     }
