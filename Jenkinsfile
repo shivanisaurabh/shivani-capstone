@@ -93,4 +93,24 @@ pipeline {
             echo 'Deployment Failed'
         }
     }
+
+    stage('Check Ansible') {
+    steps {
+        sh 'ansible --version'
+    }
+}
+
+    stage('Ansible Configure') {
+    steps {
+        dir('ansible') {
+            sh '''
+            ansible-playbook \
+            -i inventory.ini \
+            setup-server.yml
+            '''
+        }
+    }
+}
+
+
 }
